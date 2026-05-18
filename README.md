@@ -1,50 +1,63 @@
 # bd_NursingHomeCare
-Modelo de datos para proyecto de Atencion de Enfermeria Particular en casa
+
 ### 📄 Caso de Estudio Definitivo: Proyecto "Nursing HomeCare"
 
-**Nombre del Proyecto:** Arquitectura de Datos Transaccional para Atenciones de Enfermería Particular "Nursing HomeCare"
+**Nombre del Proyecto:** Arquitectura de Datos Transaccional (OLTP) para Atenciones de Enfermería Particular "Nursing HomeCare"
 
 **Contexto del Negocio**
-"Nursing HomeCare" es una agencia privada de salud a domicilio. La agencia gestiona una operativa dinámica mediante múltiples canales (WhatsApp, llamadas, correo), conectando pacientes con una red de profesionales de enfermería. El proceso abarca desde la solicitud de servicios (ej. inyectables, monitoreo UCI) hasta la asignación de turnos, ejecución del servicio, documentación clínica (SOAPIE) y calificación final. La misión es diseñar un modelo relacional (OLTP) que automatice la trazabilidad operativa, garantice la integridad de las asignaciones y permita la posterior toma de decisiones basada en datos.
+"Nursing HomeCare" es una agencia privada de salud a domicilio con una operativa altamente dinámica. Actualmente, las solicitudes de servicio (desde curaciones hasta monitoreo en UCI) ingresan de forma manual a través de canales como WhatsApp o llamadas. El equipo directivo recibe estas solicitudes y coordina con su red de profesionales de enfermería para confirmar disponibilidad.
+La misión de este proyecto es diseñar e implementar un modelo de datos relacional normalizado que permita automatizar la trazabilidad operativa, garantizar la integridad matemática en la asignación de horarios (evitando solapamientos), controlar el ciclo de vida documental y registrar la liquidación financiera de las atenciones completadas, sentando las bases para un futuro análisis en la nube.
 
 **Reglas de Negocio Estrictas**
-El modelo Entidad-Relación (ER) deberá soportar la siguiente lógica:
+El modelo Entidad-Relación soportará la siguiente lógica operativa:
 
-1. **Registro Multicanal y Desglose de Solicitudes:** Un paciente puede solicitar múltiples servicios a lo largo del tiempo. Una solicitud inicial ("Cabecera") que ingresa por un canal específico (ej. WhatsApp) puede implicar múltiples visitas físicas ("Detalles"). El sistema debe desagregar una petición general (ej. "5 días de curaciones") en turnos individuales.
-2. **Catálogo y Complejidad Tarifaria:** Cada servicio posee una tarifa base ligada a su nivel de complejidad y duración estimada.
-3. **Gestión de Disponibilidad (Zero-Overlapping):** El ciclo de vida de un turno pasa por distintos estados (Pendiente, Asignado, En Curso, Completado, Cancelado). Un profesional solo puede ser asignado si la validación matemática de su agenda garantiza que no existen cruces de horarios.
-4. **Control de Tiempos Reales (Time Tracking):** Además de la hora programada, el sistema debe registrar obligatoriamente la fecha y hora real de llegada y salida del profesional en el domicilio para medir desviaciones y calcular la duración real de la atención.
-5. **Obligatoriedad Documental (SOAPIE):** Para que un turno complejo pase a estado "Completado", el sistema debe validar la existencia de una nota de evolución clínica estructurada (Subjetivo, Objetivo, Análisis, Plan, Intervención, Evaluación).
-6. **Calidad Bidireccional:** Al finalizar el servicio, se debe permitir el registro de una calificación (1 a 5 estrellas) del paciente hacia el enfermero, y viceversa.
+1. **Desacoplamiento Clínico-Comercial:** Se debe diferenciar estrictamente al "Paciente" (quien recibe el cuidado físico) del "Responsable" (el familiar o cliente que solicita el servicio y asume el pago). Un mismo responsable puede solicitar atenciones para distintos pacientes en el tiempo.
+2. **Desglose de Cabecera-Detalle:** Una solicitud inicial ("Cabecera") que ingresa por un canal específico puede requerir múltiples visitas físicas ("Detalle"). El sistema debe desagregar una petición general (ej. "5 días de tratamiento") en turnos individuales.
+3. **Catálogo Paramétrico:** Cada servicio ofrecido posee una tarifa base y una duración estimada, definidas en un catálogo central para evitar redundancias y facilitar actualizaciones de precios.
+4. **Gestión de Disponibilidad (Zero-Overlapping):** El ciclo de vida de un turno pasa por distintos estados auditables. Un profesional solo puede ser asignado a un turno si la base de datos garantiza que no existen cruces (intersecciones) con otros horarios previamente aceptados.
+5. **Control de Tiempos Reales (Time Tracking):** Además del horario programado, es obligatorio registrar la fecha y hora real de llegada y salida del profesional para medir desviaciones operativas.
+6. **Obligatoriedad Documental (SOAPIE):** Todo turno completado exige obligatoriamente un, y solo un, registro de evolución clínica estructurado (Subjetivo, Objetivo, Análisis, Plan, Intervención, Evaluación).
+7. **Liquidación Financiera Posterior:** El pago es un evento estrictamente posterior y dependiente. Un turno finalizado genera máximo un solo registro de pago virtual (Yape, Plin, Transferencia) asociado a un número de operación bancaria único para evitar fraudes y duplicidades.
 
-**Entidades Clave Esperadas (Diccionario de Datos Base)**
-Se requiere identificar, normalizar (hasta la 3NF) y conectar las siguientes entidades, definiendo llaves primarias (PK) y foráneas (FK):
+**Diccionario de Entidades Clave (Arquitectura Lógica)**
+El diseño se compone de 9 entidades estructuradas hasta la Tercera Forma Normal (3NF):
 
-* **Pacientes / Responsables:** Datos maestros y ubicación geográfica base.
-* **Personal de Enfermería:** Directorio de profesionales, especialidades y credenciales.
-* **Catálogo de Servicios:** Entidad paramétrica de procedimientos y tarifas.
-* **Solicitudes de Servicio (Cabecera):** Registro de la intención de compra y canal de origen.
-* **Cronograma de Turnos (Detalle):** Entidad transaccional resolutiva. Controla las fechas/horas programadas, fechas/horas reales de llegada y salida, estado actual y las calificaciones bidireccionales.
-* **Historial de Estados (Auditoría):** Tabla dependiente para registrar el *timestamp* exacto de cada cambio de estado de un turno.
-* **Registros de Evolución:** Entidad de almacenamiento de las notas clínicas (SOAPIE).
+* **Maestras (Dimensiones):**
+* `Dim_Pacientes`: Sujetos de atención (Datos clínicos base y dirección).
+* `Dim_Responsables`: Clientes comerciales (Datos de contacto y facturación).
+* `Personal_Enfermeria`: Directorio de profesionales, credenciales y especialidades.
+* `Catalogo_Servicios`: Tarifario paramétrico y duraciones estándar.
 
-**Reto Analítico SQL (SLA y Eficiencia)**
-El modelo diseñado deberá ser capaz de resolver las siguientes métricas mediante T-SQL:
 
-* **Embudos de Conversión Operativa:** Porcentaje de solicitudes UCI que pasaron de "Pendiente" a "Canceladas" por falta de disponibilidad.
-* **Productividad y SLA Clínico:** Profesionales con más de 15 turnos completados en el mes actual que poseen un 100% de cumplimiento en la redacción de sus notas SOAPIE.
-* **Tiempos de Respuesta (Lead Time):** Tiempo promedio en horas transcurrido desde la creación de la solicitud hasta el registro de asignación en el historial de estados, segmentado por canal de atención.
+* **Transaccionales (Núcleo):**
+* `Solicitud_Servicio` (Cabecera): Punto de convergencia que registra la intención de compra, el canal y vincula al Paciente, Responsable y Servicio.
+* `Cronograma_Turnos` (Detalle): Entidad resolutiva. Materializa la visita física, asocia al enfermero, controla los tiempos reales y el estado actual.
+
+
+* **Dependientes (Entidades Débiles):**
+* `Historial_Estados` (1:N): Bitácora de auditoría que registra el *timestamp* exacto de cada cambio de estado de un turno.
+* `Registro_Evolucion` (1:0..1): Entidad documental que almacena los textos clínicos SOAPIE.
+* `Pago_Virtual` (1:0..1): Registro de la transacción económica y el voucher de conciliación.
+
+
+
+**Reto Analítico SQL**
+El esquema transaccional debe permitir a la directiva responder, mediante sentencias T-SQL, preguntas estratégicas como:
+
+* **Embudos de Conversión:** ¿Qué porcentaje de solicitudes de alta complejidad pasaron a estado "Cancelado" por falta de profesionales disponibles?
+* **SLA Clínico:** ¿Qué enfermeros han completado más de 15 turnos en el mes manteniendo un 100% de cumplimiento en la redacción de sus notas SOAPIE?
+* **Lead Time Operativo:** Utilizando el historial de estados, ¿cuál es el tiempo promedio transcurrido desde que un turno nace como "Pendiente" hasta que un profesional es "Asignado"?
 
 ---
 
-### 🚧 Delimitaciones del Proyecto (Qué NO modelar)
+### 🚧 Delimitaciones del Proyecto (Qué NO modelar y Por qué)
 
-Para mantener la integridad conceptual y evitar que la complejidad del modelo sobrepase los objetivos de un nivel intermedio de bases de datos transaccionales, **queda estrictamente excluido** el desarrollo de los siguientes módulos:
+Para garantizar el éxito del proyecto en un nivel intermedio de bases de datos y evitar el "Scope Creep" (corrupción del alcance), **quedan estrictamente excluidos** los siguientes módulos:
 
-| Módulo Excluido | Razón Técnica y Pedagógica |
+| Módulo Excluido | Razón Técnica y de Negocio |
 | --- | --- |
-| **Facturación y Tributación** | Generar comprobantes de pago electrónicos, calcular impuestos (IGV/IVA), notas de crédito o retenciones contables requiere un submodelo financiero completo que desvía el foco del ciclo central (Operaciones/Clínico). |
-| **Logística e Inventario de Insumos** | Controlar el stock unitario de gasas, jeringas o medicamentos consumidos por visita añade una capa de complejidad logística (Kardex) innecesaria. Se asume tarifariamente que el servicio es un "paquete cerrado" o los insumos los provee el paciente. |
-| **Geolocalización Dinámica (GIS)** | El cálculo de rutas en tiempo real, distancias exactas de traslado o uso de coordenadas espaciales dinámicas requeriría tipos de datos espaciales (ej. `geography` en SQL Server) y APIs externas, lo cual excede el alcance de SQL relacional estándar. |
-| **Historias Clínicas Previas (Anamnesis Completa)** | El diseño se centra en la evolución *actual* del cuidado (SOAPIE). Modelar antecedentes patológicos familiares, alergias crónicas o cirugías de hace 10 años convierte el sistema en un EMR (Electronic Medical Record) completo, sobrepasando el alcance operativo de una agencia de turnos. |
-| **Subastas / Sustituciones Complejas** | El flujo automatizado donde un turno cancelado entra en "subasta" a varios enfermeros con temporizadores de aceptación involucra lógicas de aplicaciones en tiempo real (colas de mensajes), no manejables puramente a nivel de base de datos relacional. |
+| **Facturación Fiscal y Tributación** | Generar comprobantes electrónicos (XML), calcular impuestos (IGV/IVA) o retenciones requiere un diseño contable complejo. Hemos modelado el *Ingreso de Dinero* (Pago Virtual), pero la *Declaración Fiscal* se maneja en un sistema ERP aparte. |
+| **Logística e Inventario de Insumos** | Controlar el stock unitario de jeringas, gasas o medicamentos consumidos por turno añade una capa de "Kardex" innecesaria. Se asume que el servicio es un paquete cerrado o que el paciente provee los insumos físicos. |
+| **Geolocalización Dinámica (GIS)** | Calcular el tiempo de traslado en tiempo real o mapear rutas requeriría tipos de datos espaciales (`geography`) y consumo de APIs de Google Maps, lo cual desvía el foco del SQL relacional estándar. |
+| **Historia Clínica Electrónica (EMR Completo)** | El modelo se centra en el episodio de cuidado actual (SOAPIE). Añadir antecedentes patológicos familiares, alergias detalladas, vacunas o cirugías de hace 10 años convierte el proyecto en un EMR médico completo, excediendo el alcance de una agencia operativa. |
+| **Subastas Automatizadas de Turnos** | Flujos donde un turno cancelado lanza una alerta a 5 enfermeros y el primero que acepta se lo queda. Esto requiere manejo de colas de mensajes (ej. RabbitMQ/Kafka) y lógica de aplicación en tiempo real, no manejable puramente desde restricciones de base de datos relacional. |
